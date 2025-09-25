@@ -457,7 +457,17 @@
                     </select>
                 </div>
 
-                <button class="btn" onclick="uploadFile()">📤 Partager</button>
+                <!-- Zone d'aperçu des fichiers en attente -->
+                <div id="filePreview" style="display: none; margin: 15px 0; padding: 15px; background: #f8f9fa; border-radius: 8px; border: 1px solid #e9ecef;">
+                    <h4 style="margin: 0 0 10px 0; color: #333;">📋 Fichiers sélectionnés :</h4>
+                    <div id="previewContent"></div>
+                    <div style="margin-top: 10px; font-size: 0.9em; color: #666;">
+                        <strong id="previewTotal"></strong>
+                    </div>
+                    <button class="btn" style="margin-top: 10px; background: #dc3545; font-size: 0.8em; padding: 5px 10px;" onclick="clearPendingFiles()">🗑️ Effacer</button>
+                </div>
+
+                <button class="btn" onclick="uploadFile()" id="shareButton">📤 Partager</button>
 
                 <div id="uploadResult" style="margin-top: 15px;"></div>
             </div>
@@ -618,6 +628,7 @@
 
         // Variables globales pour les fichiers en attente
         let pendingFiles = [];
+        let filePreviewShown = false;
 
         // Gestion de la sélection de fichiers
         function handleFileSelection() {
@@ -654,15 +665,14 @@
                 return;
             }
 
-            // Si un seul fichier et pas de dossier, upload direct
-            if (files.length === 1 && !hasDirectories) {
-                uploadFile();
-                return;
-            }
-
-            // Sinon, afficher la confirmation
+            // Mettre tous les fichiers en attente (plus d'upload automatique)
             pendingFiles = files;
-            showConfirmationModal(files, totalSize, hasDirectories);
+            updateFilePreview(files, totalSize);
+
+            // Si c'est un dossier ou plusieurs fichiers, afficher la confirmation
+            if (files.length > 1 || hasDirectories) {
+                showConfirmationModal(files, totalSize, hasDirectories);
+            }
         }
 
         // Afficher la modal de confirmation
@@ -777,12 +787,61 @@
             return data;
         }
 
-        // Upload fichier
+        // Afficher l'aperçu des fichiers sélectionnés
+        function updateFilePreview(files, totalSize) {
+            const preview = document.getElementById('filePreview');
+            const content = document.getElementById('previewContent');
+            const total = document.getElementById('previewTotal');
+            const shareButton = document.getElementById('shareButton');
+
+            if (files.length === 0) {
+                preview.style.display = 'none';
+                shareButton.textContent = '📤 Partager';
+                shareButton.style.background = '#2196F3';
+                return;
+            }
+
+            preview.style.display = 'block';
+            shareButton.textContent = `📤 Partager (${files.length} fichier${files.length > 1 ? 's' : ''})`;
+            shareButton.style.background = '#4CAF50';
+
+            // Afficher les fichiers (max 5 visible)
+            content.innerHTML = files.slice(0, 5).map(file =>
+                `<div style="margin: 5px 0; padding: 8px; background: white; border-radius: 4px; font-size: 0.9em;">
+                    📄 ${file.name} <span style="color: #666;">(${formatFileSize(file.size)})</span>
+                </div>`
+            ).join('') +
+            (files.length > 5 ?
+                `<div style="margin: 5px 0; padding: 8px; background: white; border-radius: 4px; font-size: 0.9em; color: #666;">
+                    ... et ${files.length - 5} autres fichiers
+                </div>` : '');
+
+            total.textContent = `Total : ${formatFileSize(totalSize)} (${files.length} fichier${files.length > 1 ? 's' : ''})`;
+        }
+
+        // Effacer les fichiers en attente
+        function clearPendingFiles() {
+            pendingFiles = [];
+            updateFilePreview([], 0);
+            document.getElementById('fileInput').value = '';
+            document.getElementById('folderInput').value = '';
+            closeModal();
+        }
+
+        // Upload fichier (modifié pour gérer les fichiers en attente)
         async function uploadFile() {
-            const fileInput = document.getElementById('fileInput');
             const category = document.getElementById('category').value;
             const resultDiv = document.getElementById('uploadResult');
 
+            // Si des fichiers sont en attente, les uploader
+            if (pendingFiles.length > 0) {
+                await uploadMultipleFiles(pendingFiles);
+                clearPendingFiles();
+                return;
+            }
+
+            // Sinon, comportement classique pour drag & drop direct
+            const fileInput = document.getElementById('fileInput');
             if (!fileInput.files[0]) {
                 showNotification('❌ Sélectionnez un fichier', 'error');
                 return;
