@@ -476,9 +476,132 @@
         </div>
     </div>
 
+    <!-- Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
+        // Variables globales
+        let supabase;
+        let adminToken = null;
+        let adminUser = null;
+
+        // Initialiser Supabase et vérifier l'authentification
+        async function initAdmin() {
+            try {
+                // Charger la config Supabase
+                const response = await fetch('/api/config');
+                const config = await response.json();
+
+                supabase = window.supabase.createClient(
+                    config.supabaseUrl,
+                    config.supabaseAnonKey
+                );
+
+                // Vérifier l'authentification
+                await checkAdminAuth();
+            } catch (error) {
+                console.error('Erreur initialisation admin:', error);
+                redirectToLogin('Erreur de configuration');
+            }
+        }
+
+        // Vérifier l'authentification admin
+        async function checkAdminAuth() {
+            adminToken = localStorage.getItem('admin_token');
+
+            if (!adminToken) {
+                redirectToLogin('Connexion requise');
+                return;
+            }
+
+            try {
+                // Vérifier le token avec le serveur
+                const response = await fetch('/admin/me', {
+                    headers: {
+                        'Authorization': `Bearer ${adminToken}`
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error('Token admin invalide');
+                }
+
+                const data = await response.json();
+                adminUser = data.admin;
+
+                // Afficher les infos admin
+                updateAdminInfo();
+
+            } catch (error) {
+                console.error('Erreur auth admin:', error);
+                localStorage.removeItem('admin_token');
+                localStorage.removeItem('admin_user');
+                redirectToLogin('Session expirée');
+            }
+        }
+
+        // Mettre à jour les infos admin dans l'interface
+        function updateAdminInfo() {
+            if (adminUser) {
+                // Ajouter un header avec les infos admin
+                const header = document.querySelector('.header');
+                const adminInfo = document.createElement('div');
+                adminInfo.style.cssText = 'margin-top: 15px; padding-top: 15px; border-top: 1px solid #eee; display: flex; justify-content: space-between; align-items: center;';
+                adminInfo.innerHTML = `
+                    <div style="color: #666;">
+                        Connecté en tant que: <strong>${adminUser.fullName || adminUser.email}</strong>
+                        <span style="margin-left: 10px; background: #4CAF50; color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.8em;">${adminUser.role}</span>
+                    </div>
+                    <button onclick="logoutAdmin()" style="background: #f44336; color: white; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer;">Se déconnecter</button>
+                `;
+                header.appendChild(adminInfo);
+            }
+        }
+
+        // Déconnexion admin
+        function logoutAdmin() {
+            localStorage.removeItem('admin_token');
+            localStorage.removeItem('admin_user');
+            redirectToLogin('Déconnexion réussie');
+        }
+
+        // Rediriger vers la page de login
+        function redirectToLogin(message) {
+            if (message) {
+                sessionStorage.setItem('login_message', message);
+            }
+            window.location.href = '/admin/login';
+        }
+
+        // Fonction utilitaire pour les requêtes authentifiées
+        async function authFetch(url, options = {}) {
+            const defaultHeaders = {
+                'Authorization': `Bearer ${adminToken}`,
+                'Content-Type': 'application/json'
+            };
+
+            const config = {
+                ...options,
+                headers: {
+                    ...defaultHeaders,
+                    ...options.headers
+                }
+            };
+
+            const response = await fetch(url, config);
+
+            if (response.status === 401 || response.status === 403) {
+                localStorage.removeItem('admin_token');
+                localStorage.removeItem('admin_user');
+                redirectToLogin('Session admin expirée');
+                throw new Error('Non autorisé');
+            }
+
+            return response;
+        }
+
         // Charger au démarrage
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', async () => {
+            await initAdmin();
             loadStudents();
             loadStats();
         });
@@ -505,9 +628,8 @@
                 // Générer un code étudiant unique
                 const studentCode = `AIS${Date.now().toString().slice(-6)}`;
 
-                const response = await fetch('/admin/students', {
+                const response = await authFetch('/admin/students', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         name: name,
                         studentCode: studentCode,
@@ -612,7 +734,7 @@
         // Afficher les codes d'un étudiant existant
         async function showStudentAccess(studentId, studentName, studentCode) {
             try {
-                const response = await fetch(`/admin/students/${studentId}/access`);
+                const response = await authFetch(`/admin/students/${studentId}/access`);
                 const data = await response.json();
 
                 if (data.success) {
@@ -637,9 +759,8 @@
             }
 
             try {
-                const response = await fetch(`/admin/students/${studentId}/regenerate`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' }
+                const response = await authFetch(`/admin/students/${studentId}/regenerate`, {
+                    method: 'POST'
                 });
 
                 const data = await response.json();
@@ -686,9 +807,8 @@
             }
 
             try {
-                const response = await fetch('/admin/students/batch', {
+                const response = await authFetch('/admin/students/batch', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ count, prefix })
                 });
 
@@ -711,7 +831,7 @@
             const studentsList = document.getElementById('studentsList');
 
             try {
-                const response = await fetch('/admin/students');
+                const response = await authFetch('/admin/students');
                 const students = await response.json();
 
                 if (students.length === 0) {
@@ -761,8 +881,8 @@
         async function loadStats() {
             try {
                 const [studentsRes, statsRes] = await Promise.all([
-                    fetch('/admin/students'),
-                    fetch('/admin/stats')
+                    authFetch('/admin/students'),
+                    authFetch('/admin/stats')
                 ]);
 
                 // Vérifier les réponses
@@ -817,7 +937,7 @@
             }
 
             try {
-                const response = await fetch(`/admin/students/${studentId}`, {
+                const response = await authFetch(`/admin/students/${studentId}`, {
                     method: 'DELETE'
                 });
 

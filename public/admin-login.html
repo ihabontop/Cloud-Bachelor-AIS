@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Login - Cloud Bachelor AIS</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .login-container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+        }
+
+        .logo {
+            font-size: 3em;
+            margin-bottom: 10px;
+        }
+
+        .title {
+            color: #333;
+            font-size: 1.8em;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 0.95em;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+            text-align: left;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 500;
+        }
+
+        input[type="email"], input[type="password"] {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e1e5e9;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+            background: #f8f9fa;
+        }
+
+        input[type="email"]:focus, input[type="password"]:focus {
+            outline: none;
+            border-color: #667eea;
+            background: white;
+        }
+
+        .login-btn {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+            margin-top: 10px;
+        }
+
+        .login-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .login-btn:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .error-message {
+            background: #fee;
+            color: #c33;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+            border-left: 4px solid #c33;
+            text-align: left;
+        }
+
+        .success-message {
+            background: #efe;
+            color: #363;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+            border-left: 4px solid #363;
+            text-align: left;
+        }
+
+        .back-link {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+        }
+
+        .back-link a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .back-link a:hover {
+            text-decoration: underline;
+        }
+
+        .loading {
+            display: none;
+            margin: 20px 0;
+        }
+
+        .loading::after {
+            content: '';
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="logo">🔐</div>
+        <h1 class="title">Administration</h1>
+        <p class="subtitle">Cloud Bachelor AIS</p>
+
+        <form id="loginForm">
+            <div class="form-group">
+                <label for="email">Email administrateur :</label>
+                <input type="email" id="email" required placeholder="admin@example.com">
+            </div>
+
+            <div class="form-group">
+                <label for="password">Mot de passe :</label>
+                <input type="password" id="password" required placeholder="••••••••">
+            </div>
+
+            <button type="submit" class="login-btn" id="loginBtn">
+                🚀 Se connecter
+            </button>
+        </form>
+
+        <div class="loading" id="loading">Vérification en cours...</div>
+        <div id="message"></div>
+
+        <div class="back-link">
+            <a href="/">← Retour à l'accueil</a>
+        </div>
+    </div>
+
+    <!-- Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        // Configuration Supabase (à adapter selon votre config)
+        const SUPABASE_URL = 'https://your-project.supabase.co';
+        const SUPABASE_ANON_KEY = 'your-anon-key';
+
+        // Charger la config depuis le serveur
+        let supabase;
+
+        // Initialiser Supabase
+        async function initSupabase() {
+            try {
+                const response = await fetch('/api/config');
+                const config = await response.json();
+
+                supabase = window.supabase.createClient(
+                    config.supabaseUrl,
+                    config.supabaseAnonKey
+                );
+
+                console.log('Supabase initialisé pour admin');
+            } catch (error) {
+                console.error('Erreur initialisation Supabase:', error);
+                showMessage('Erreur de configuration', 'error');
+            }
+        }
+
+        // Afficher un message
+        function showMessage(text, type = 'error') {
+            const messageDiv = document.getElementById('message');
+            messageDiv.className = type === 'error' ? 'error-message' : 'success-message';
+            messageDiv.textContent = text;
+        }
+
+        // Vérifier si admin existe
+        async function checkAdminExists(email) {
+            try {
+                const { data, error } = await supabase
+                    .from('admin_users')
+                    .select('*')
+                    .eq('email', email)
+                    .eq('is_active', true);
+
+                if (error) {
+                    console.error('Erreur Supabase:', error);
+                    return { exists: false, message: 'Erreur de vérification: ' + error.message };
+                }
+
+                if (!data || data.length === 0) {
+                    return { exists: false, message: 'Email non autorisé pour l\'administration' };
+                }
+
+                return { exists: true, admin: data[0] };
+            } catch (error) {
+                console.error('Erreur vérification admin:', error);
+                return { exists: false, message: 'Erreur de vérification' };
+            }
+        }
+
+        // Connexion admin (version simplifiée)
+        async function loginAdmin(email, password) {
+            const loadingDiv = document.getElementById('loading');
+            const loginBtn = document.getElementById('loginBtn');
+
+            try {
+                loadingDiv.style.display = 'block';
+                loginBtn.disabled = true;
+
+                // 1. Essayer de se connecter directement avec Supabase Auth
+                const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+                    email: email,
+                    password: password
+                });
+
+                if (authError) {
+                    throw new Error('Email ou mot de passe incorrect');
+                }
+
+                // 2. Vérifier après connexion si c'est un admin
+                const adminCheck = await checkAdminExists(email);
+                if (!adminCheck.exists) {
+                    // Déconnecter si pas admin
+                    await supabase.auth.signOut();
+                    throw new Error('Accès non autorisé - Compte administrateur requis');
+                }
+
+                // 3. Mettre à jour last_login
+                try {
+                    await supabase
+                        .from('admin_users')
+                        .update({ last_login: new Date().toISOString() })
+                        .eq('email', email);
+                } catch (updateError) {
+                    console.warn('Impossible de mettre à jour last_login:', updateError);
+                }
+
+                // 4. Stocker le token admin
+                localStorage.setItem('admin_token', authData.session.access_token);
+                localStorage.setItem('admin_user', JSON.stringify(adminCheck.admin));
+
+                showMessage('Connexion réussie ! Redirection...', 'success');
+
+                // Redirection après 1 seconde
+                setTimeout(() => {
+                    window.location.href = '/admin';
+                }, 1000);
+
+            } catch (error) {
+                console.error('Erreur de connexion:', error);
+                showMessage(error.message, 'error');
+            } finally {
+                loadingDiv.style.display = 'none';
+                loginBtn.disabled = false;
+            }
+        }
+
+        // Gestion du formulaire
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+
+            if (!email || !password) {
+                showMessage('Veuillez remplir tous les champs', 'error');
+                return;
+            }
+
+            await loginAdmin(email, password);
+        });
+
+        // Vérifier si déjà connecté
+        async function checkAlreadyLoggedIn() {
+            const token = localStorage.getItem('admin_token');
+            if (token) {
+                try {
+                    const { data: { user }, error } = await supabase.auth.getUser(token);
+                    if (user && !error) {
+                        // Vérifier si toujours admin
+                        const adminCheck = await checkAdminExists(user.email);
+                        if (adminCheck.exists) {
+                            window.location.href = '/admin';
+                            return;
+                        }
+                    }
+                } catch (error) {
+                    // Token invalide, le supprimer
+                    localStorage.removeItem('admin_token');
+                    localStorage.removeItem('admin_user');
+                }
+            }
+        }
+
+        // Initialisation
+        window.addEventListener('DOMContentLoaded', async () => {
+            await initSupabase();
+            await checkAlreadyLoggedIn();
+        });
+    </script>
+</body>
+</html>

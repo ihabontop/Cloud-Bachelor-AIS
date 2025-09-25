@@ -5,7 +5,19 @@ const { createClient } = require('@supabase/supabase-js');
 const supabaseUrl = process.env.SUPABASE_URL || 'https://ysshkeobtkicyjgsbjdb.supabase.co';
 const supabaseKey = process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlzc2hrZW9idGtpY3lqZ3NiamRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4MTMxMDcsImV4cCI6MjA3NDM4OTEwN30.CGs80sv6dw10nYAoc3pyDjaXnS8cEddPLH-PzqRkyy4';
 
+// Client principal pour les opérations générales
 const supabase = createClient(supabaseUrl, supabaseKey);
+
+// Client service pour les opérations serveur (si service key disponible)
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY;
+const supabaseAdmin = supabaseServiceKey
+    ? createClient(supabaseUrl, supabaseServiceKey, {
+        auth: {
+            autoRefreshToken: false,
+            persistSession: false
+        }
+    })
+    : supabase; // Fallback au client normal
 
 // Schéma SQL pour créer les tables Supabase
 const SQL_SCHEMA = `
@@ -82,5 +94,6 @@ CREATE TRIGGER update_files_updated_at BEFORE UPDATE ON files
 
 module.exports = {
     supabase,
+    supabaseAdmin,
     SQL_SCHEMA
 };
