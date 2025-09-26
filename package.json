@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "node server.js",
+    "start": "node server-hybrid.js",
     "dev": "node server-hybrid.js",
     "dev:watch": "nodemon server-hybrid.js",
     "prod": "NODE_ENV=production node server-hybrid.js",

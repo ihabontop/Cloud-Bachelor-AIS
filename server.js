@@ -304,6 +304,8 @@ if (process.env.NODE_ENV === 'production') {
 // Démarrer le serveur
 app.listen(PORT, HOST, () => {
     console.log(`🌟 Serveur cloud démarré sur ${HOST}:${PORT}`);
+    console.log(`⚠️  ATTENTION: Vous utilisez server.js (version obsolète)`);
+    console.log(`⚠️  Socket.IO non disponible - Utilisez server-hybrid.js`);
     console.log(`📂 Interface web: http://${HOST}:${PORT}`);
     console.log(`📁 Dossier uploads: ${uploadsDir}`);
     console.log(`💾 Limite fichiers: 700MB (Discord Nitro competitor!)`);

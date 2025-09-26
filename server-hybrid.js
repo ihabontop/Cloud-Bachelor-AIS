@@ -962,7 +962,8 @@ server.listen(PORT, HOST, async () => {
     console.log(`🛡️ Cloud Bachelor AIS démarré sur ${HOST}:${PORT}`);
     console.log(`📚 Interface: http://${HOST}:${PORT}`);
     console.log(`🔐 Auth: Supabase | 💾 Stockage: Local`);
-    console.log(`⚡ WebSocket temps réel activé`);
+    console.log(`⚡ WebSocket temps réel activé (server-hybrid.js)`);
+    console.log(`🔌 Socket.IO disponible sur /socket.io/socket.io.js`);
 
     // Tester Supabase
     await testSupabaseConnection();
